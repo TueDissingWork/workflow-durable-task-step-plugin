@@ -172,11 +172,24 @@ public final class ExecutorStepDynamicContext implements Serializable {
 
         @Override FilePath get(ExecutorStepDynamicContext c) throws IOException {
             if (c.lease.path.toComputer() == null) {
-                FilePath f = FilePathUtils.find(c.node, c.path);
-                if (f != null) {
-                    LOGGER.fine(() -> c.node + " disconnected and reconnected; getting a new FilePath on " + c.path + " with the new Channel");
-                    return f;
-                }
+            	int maxRetryAttempts = 50;
+            	for (int retryAttempts=1; retryAttempts <= maxRetryAttempts; retryAttempts++) {
+            		FilePath f = FilePathUtils.find(c.node, c.path);
+            		if (f != null) {
+            			LOGGER.fine(() -> c.node + " disconnected and reconnected; getting a new FilePath on " + c.path + " with the new Channel");
+            			return f;
+            		}
+            		try {
+            			LOGGER.fine("Problem with connection to node. Will try again in 1 second ("
+            					+ retryAttempts + " of " + maxRetryAttempts + ")");
+						Thread.sleep(1000);
+					} catch (InterruptedException e) {
+						LOGGER.fine("Can't retry connection with node");
+						break;
+					}            		
+            	}
+            	
+            	
                 String message = "Unable to create live FilePath for " + c.node;
                 Computer comp = Jenkins.get().getComputer(c.node);
                 if (comp != null) {
